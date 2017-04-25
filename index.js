@@ -31,7 +31,7 @@ const decompress    = require('decompress');
  */
 const base        = path.resolve(process.cwd());
 const log         = console.log;
-const types       = ['atom', 'helper', 'molecule', 'organism', 'style', 'template'];
+const types       = ['atom', 'helper', 'molecule', 'organism', 'style', 'template', 'page'];
 
 /**
  * -----------------------------------------------------------------------------
@@ -246,6 +246,81 @@ const createTemplatePrompt = (opt) => {
             process.exit();
         } else {
             createTemplate(result);
+        }
+    });
+};
+
+const createPage = (opt) => {
+    log(prefix, 'creating page', opt.label + '...');
+
+    let path = `${base}/data`;
+    let file = path + '/pages.json';
+
+    fs.ensureDirSync(path);
+
+    let data;
+
+    if (fs.existsSync(file)) {
+        let fdata = fs.readFileSync(file, 'utf-8');
+        data = JSON.parse(fdata);
+    } else {
+        data = [];
+    }
+
+    if (!_.findWhere(data, {label: opt.label})) {
+        data.push({url: opt.url, label: opt.label});
+
+        let output    = JSON.stringify(data);
+        output        = beautify(output);
+
+        fs.writeFileSync(file, output);
+
+        log(prefix, 'created page', opt.label);
+    } else {
+        log(prefix, opt.label, 'page already exists');
+    }
+
+    process.exit();
+};
+
+const createPagePrompt = (opt) => {
+
+    let params = {};
+
+    _.keys(opt._events).forEach((key) => {
+        if (opt.hasOwnProperty(key)) {
+            params[key] = opt[key];
+        } else {
+            delete params[key];
+        }
+    });
+
+    let schema = {
+        properties: {
+            url: {
+                required:    true,
+                description: chalk.yellow('URL:'),
+                message:     'URL is required'
+            },
+            label: {
+                required:    true,
+                description: chalk.yellow('Label Text:'),
+                message:     'Label text is required'
+            }
+        }
+    };
+
+    prompt.message   = '  > ';
+    prompt.delimiter = '';
+    prompt.override  = params;
+    prompt.start();
+    prompt.get(schema, (err, result) => {
+        if (err) {
+            log(prefix, chalk.red('page error:'), err);
+            process.exit();
+        } else {
+            _.keys(prompt.override).forEach((key) => { result[key] = prompt.override[key]; });
+            createPage(result);
         }
     });
 };
@@ -547,6 +622,21 @@ program.command('eject <path>')
     // Extra line
     log('');
 });
+
+program.command('page')
+.description('Adds a link to the Butter > Pages Menu')
+.option('-u, --url [url]',  'the url of the page')
+.option('-l, --label [label]',  'the link label text')
+.action(createPagePrompt)
+.on('--help', () => {
+    log('  Examples:');
+    log('    $ butter eject "/Users/me/Desktop"');
+
+
+    // Extra line
+    log('');
+});
+
 
 
 
