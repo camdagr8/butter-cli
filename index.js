@@ -7,18 +7,22 @@
  * Imports
  * -----------------------------------------------------------------------------
  */
-const beautify    = require('js-beautify').js_beautify;
-const chalk       = require('chalk');
-const fs          = require('fs-extra');
-const path        = require('path');
-const pkg         = require(__dirname+'/package.json');
-const program     = require('commander');
-const prompt      = require('prompt');
-const slugify     = require('slugify');
-const config      = require(__dirname+'/config.json');
-const _           = require('underscore');
-const prefix      = chalk.yellow('[butter]');
-const exec        = require('child_process').exec;
+const beautify      = require('js-beautify').js_beautify;
+const chalk         = require('chalk');
+const fs            = require('fs-extra');
+const path          = require('path');
+const pkg           = require(__dirname+'/package.json');
+const program       = require('commander');
+const prompt        = require('prompt');
+const slugify       = require('slugify');
+const config        = require(__dirname+'/config.json');
+const _             = require('underscore');
+const prefix        = chalk.yellow('[butter]');
+const exec          = require('child_process').exec;
+const spawn         = require('child_process').spawn;
+const request       = require('request');
+const decompress    = require('decompress');
+
 
 /**
  * -----------------------------------------------------------------------------
@@ -246,6 +250,136 @@ const createTemplatePrompt = (opt) => {
     });
 };
 
+const install = {
+    init: (opt) => {
+        let params      = {};
+        let contents    = [];
+
+        _.keys(opt._events).forEach((key) => {
+            if (opt.hasOwnProperty(key)) {
+                params[key] = opt[key];
+            } else {
+                delete params[key];
+            }
+        });
+
+
+        fs.readdirSync(base).forEach((dir) => { if (dir.substr(0, 1) !== '.') { contents.push(dir); } });
+
+        if (contents.length > 0 && params.overwrite !== true) {
+            delete params['overwrite'];
+        } else {
+            params['overwrite'] = true;
+        }
+
+        install.prompt(params);
+    },
+
+    prompt: (opt) => {
+        let schema = {
+            properties: {
+                username: {
+                    description: chalk.yellow('Username:'),
+                },
+                password: {
+                    description: chalk.yellow('Password:')
+                }
+            }
+        };
+
+        if (opt['overwrite'] !== true) {
+            schema.properties['overwrite'] = {
+                description: chalk.yellow('The install directory is not empty. Do you want to overwrite it?'),
+                default:     'Y/N',
+                conform:     function (answer) {
+                    if (answer.toLowerCase() !== 'y') {
+                        log(prefix, chalk.red('install cancelled'));
+                        process.exit();
+                    } else {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        prompt.message      = '  > ';
+        prompt.delimiter    = '';
+        prompt.override     = opt;
+        prompt.start();
+        prompt.get(schema, (err, result) => {
+            if (err) {
+                log(prefix, chalk.red('install error:'), err);
+                process.exit();
+            } else {
+                result['overwrite'] = Boolean(result.overwrite === 'y');
+                _.keys(prompt.override).forEach((key) => { result[key] = prompt.override[key]; });
+                install.start(result);
+            }
+        });
+    },
+
+    start: (opt) => {
+        log(prefix, 'downloading... this may take awhile.');
+
+        // Create the tmp directory if it doesn't exist.
+        fs.ensureDirSync(`${base}/tmp`);
+
+        // Download the most recent version of jam
+        request(config.install)
+        .pipe(fs.createWriteStream(`${base}/tmp/butter.zip`))
+        .on('close', function () {
+            log(prefix, 'download complete!');
+            log(prefix, 'unzipping...');
+
+            // next -> unzip
+            setTimeout(install.unzip, 2000, opt);
+        });
+    },
+
+    unzip: (opt) => {
+        decompress(`${base}/tmp/butter.zip`, base, {strip: 1}).then(() => {
+            // Delete the tmp directory
+            fs.removeSync(`${base}/tmp`);
+            if (opt['username'] && opt['password']) {
+                install.lockdown(opt);
+            } else {
+                install.npm(opt);
+            }
+        });
+    },
+
+    lockdown: (opt) => {
+        log(prefix, 'securing...');
+        fs.writeFileSync(`${base}/.htpasswd`, `${opt.username}:${opt.password}`);
+        install.npm(opt);
+    },
+
+    npm: (opt) => {
+        log(prefix, 'installing dependencies... this may take awhile.');
+        exec('npm install', (err) => {
+            if (err) {
+                log(prefix, err);
+                process.exit();
+            } else {
+                install.build(opt);
+            }
+        });
+    },
+
+    build: () => {
+        log(prefix, 'building...');
+        exec('gulp', (err) => {
+            if (err) {
+                log(prefix, err);
+            } else {
+                log(prefix, 'install complete!');
+                log(prefix, 'run `npm test` to launch Butter.');
+            }
+            process.exit();
+        });
+    }
+};
+
 
 /**
  *
@@ -273,61 +407,113 @@ const validType = (type) => {
  * CLI Commands
  * -----------------------------------------------------------------------------
  */
-program.command('create <type>')
-    .description('Creates the specified material <type>: ' + types.join('|'))
-    .option('-n, --name    <name>',  'the name of the material')
-    .option('-g, --group   [group]', 'the group to add the new material to')
-    .option('-s, --style   [style]', 'the style sheet to create')
-    .option('-d, --dna     [dna]',   'the DNA-ID for the new material')
-    .action((type, opt) => {
-        if (validType(type) !== true) {
-            log(prefix, 'error:', 'create <type> must be `' + types.join('`, `') + '`');
-            return;
-        }
-
-        type = String(type).toLowerCase();
-
-        switch (type) {
-            case 'style':
-                createStylePrompt(opt);
-                break;
-
-            case 'template':
-                createTemplatePrompt(opt);
-                break;
-
-            default:
-                createMaterialPrompt(type, opt);
-        }
-    })
-    .on('--help', () => {
-        log('  Examples:');
-        log('    $ butter create molecule --name "btn-primary" --group "buttons" --style "button-primary" --dna "btn-primary"');
-
-        // Extra line
-        log('');
-    });
-
 program.command('set')
-    .description('Set configuration key:value pairs')
-    .option('-k, --key <key>', 'the configuration property to set ['+_.keys(config).join('|')+']')
-    .option('-v, --value <value>', 'the configuration property value')
-    .action((opt) => {
-       config[opt.key] = opt.value;
+.description('Set configuration key:value pairs')
+.option('-k, --key <key>', 'the configuration property to set ['+_.keys(config).join('|')+']')
+.option('-v, --value <value>', 'the configuration property value')
+.action((opt) => {
+    config[opt.key] = opt.value;
 
-       let cfile = __dirname + '/config.json';
-       fs.writeFileSync(cfile, beautify(JSON.stringify(config)));
+    let cfile = __dirname + '/config.json';
+    fs.writeFileSync(cfile, beautify(JSON.stringify(config)));
 
-       log(prefix, 'updated config.json');
-       log(fs.readFileSync(cfile, 'utf-8'));
-    })
-    .on('--help', () => {
-        log('  Examples:');
-        log('    $ butter set -k theme -v "my-theme"');
+    log(prefix, 'updated config.json');
+    log(fs.readFileSync(cfile, 'utf-8'));
+})
+.on('--help', () => {
+    log('  Examples:');
+    log('    $ butter set -k theme -v "my-theme"');
 
-        // Extra line
-        log('');
+    // Extra line
+    log('');
+});
+
+program.command('install')
+.description('Installs butter in the current directory: ' + base)
+.option('-o, --overwrite [overwrite]', 'overwrite the install path')
+.option('-u, --username [username]', 'basic auth username')
+.option('-p, --password [password]', 'basic auth password')
+.action(install.init)
+.on('--help', () => {
+    log('  Examples:');
+    log('    $ butter install --overwrite');
+
+    // Extra line
+    log('');
+});
+
+program.command('create <type>')
+.description('Creates the specified <type>: ' + types.join('|'))
+.option('-n, --name    <name>',  'the name of the material')
+.option('-g, --group   [group]', 'the group to add the new material to')
+.option('-s, --style   [style]', 'the style sheet to create')
+.option('-d, --dna     [dna]',   'the DNA-ID for the new material')
+.action((type, opt) => {
+    if (validType(type) !== true) {
+        log(prefix, 'error:', 'create <type> must be `' + types.join('`, `') + '`');
+        return;
+    }
+
+    type = String(type).toLowerCase();
+
+    switch (type) {
+        case 'style':
+            createStylePrompt(opt);
+            break;
+
+        case 'template':
+            createTemplatePrompt(opt);
+            break;
+
+        default:
+            createMaterialPrompt(type, opt);
+    }
+})
+.on('--help', () => {
+    log('  Examples:');
+    log('    $ butter create molecule --name "btn-primary" --group "buttons" --style "button-primary" --dna "btn-primary"');
+
+    // Extra line
+    log('');
+});
+
+program.command('launch')
+.description('Launch Butter and listen for changes')
+.action(() => {
+    let gulp = spawn('gulp', ['--dev']);
+    gulp.stdout.on('data', function (data) {
+        log(data.toString());
     });
+})
+.on('--help', () => {
+    log('  Examples:');
+    log('    $ butter launch');
+
+    // Extra line
+    log('');
+});
+
+program.command('build')
+.description('Build Butter')
+.action(() => {
+    log(prefix, 'building assets...');
+
+    // Run gulp build
+    exec('gulp', (err) => {
+        if (err) {
+            log(prefix, err);
+        } else {
+            log(prefix, 'build complete!');
+        }
+    });
+})
+.on('--help', () => {
+    log('  Examples:');
+    log('    $ butter build');
+
+    // Extra line
+    log('');
+});
 
 program.command('eject <path>')
 .description('Ejects the butter ~/dist/assets directory to the specified <path>')
@@ -361,6 +547,8 @@ program.command('eject <path>')
     // Extra line
     log('');
 });
+
+
 
 /**
  * -----------------------------------------------------------------------------

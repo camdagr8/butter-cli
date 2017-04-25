@@ -1,4 +1,5 @@
 {
   "src": "src",
-  "theme": "default"
+  "theme": "default",
+  "install": "https://github.com/reykjavikingur/breakfast-butter/archive/master.zip"
 }
