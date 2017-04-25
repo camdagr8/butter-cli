@@ -1,0 +1,38 @@
+{
+  "name": "brkfst-butter-cli",
+  "version": "1.0.0",
+  "description": "Butter Command-Line Interface",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/camdagr8/butter-cli.git"
+  },
+  "keywords": [
+    "Butter"
+  ],
+  "author": "Cam Tullos <cam@tullos.ninja> (http://cam.tullos.ninja)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/camdagr8/butter-cli/issues"
+  },
+  "homepage": "https://github.com/camdagr8/butter-cli#readme",
+  "engines": {
+    "node": "7.5.0",
+    "npm": ">=2.0.0"
+  },
+  "bin": {
+    "butter": "./index.js"
+  },
+  "dependencies": {
+    "chalk": "^1.1.3",
+    "commander": "^2.9.0",
+    "fs-extra": "^2.1.2",
+    "js-beautify": "^1.6.11",
+    "prompt": "^1.0.0",
+    "slugify": "^1.1.0",
+    "underscore": "^1.8.3"
+  }
+}
