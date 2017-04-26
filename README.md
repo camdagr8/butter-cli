@@ -23,6 +23,6 @@ npm install -g brkfst-butter-cli
     -h, --help     output usage information
     -V, --version  output the version number
 
-
-
 ```
+
+> Head over to the [Butter docs](https://github.com/reykjavikingur/breakfast-butter/wiki/The-Butter-CLI) for more info.
