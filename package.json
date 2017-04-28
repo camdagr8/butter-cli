@@ -1,6 +1,6 @@
 {
   "name": "brkfst-butter-cli",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Butter Command-Line Interface",
   "main": "index.js",
   "scripts": {
@@ -32,6 +32,7 @@
     "decompress": "^4.1.0",
     "fs-extra": "^2.1.2",
     "js-beautify": "^1.6.11",
+    "ora": "^1.2.0",
     "prompt": "^1.0.0",
     "request": "^2.81.0",
     "slugify": "^1.1.0",

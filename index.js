@@ -22,7 +22,7 @@ const exec          = require('child_process').exec;
 const spawn         = require('child_process').spawn;
 const request       = require('request');
 const decompress    = require('decompress');
-
+const ora           = require('ora');
 
 /**
  * -----------------------------------------------------------------------------
@@ -46,30 +46,41 @@ program.version(pkg.version);
  * Functions
  * -----------------------------------------------------------------------------
  */
-const createMaterial = (type, opt) => {
+const createMaterial = (type, opt, spinner) => {
 
-    type         = type || 'TYPE';
-    let name     = slugify(opt['name']).toLowerCase();
-    let dna      = opt['dna'] || 'DNA-ID';
-    let id       = (opt.hasOwnProperty('group')) ? slugify(opt.group).toLowerCase() : name;
-    id           = (type === 'helper') ? 'helpers' : id;
-    let mpath    = base + '/' + config.src + '/materials/' + id;
-    let mfile    = mpath + '/' + name + '.html';
-    let mat      = fs.readFileSync(__dirname + '/templates/material.html', 'utf-8');
-    mat          = mat.replace(/\$\{type\}/gi, type);
-    mat          = mat.replace(/\$\{dna\}/gi, dna);
-    let vpath    = base + '/' + config.src + '/views/';
-    let vfile    = vpath + id + '.html';
-    let view     = fs.readFileSync(__dirname + '/templates/view.html', 'utf-8');
-    view         = view.replace(/\$\{id\}/gi, id);
+    type           = type || 'TYPE';
+    let name       = slugify(opt['name']).toLowerCase();
+    let dna        = opt['dna'] || 'DNA-ID';
+    let id         = (opt.hasOwnProperty('group')) ? slugify(opt.group).toLowerCase() : name;
+    id             = (type === 'helper') ? 'helpers' : id;
+    let mpath      = base + '/' + config.src + '/materials/' + id;
+    let mfile      = mpath + '/' + name + '.html';
+    let mat        = fs.readFileSync(__dirname + '/templates/material.html', 'utf-8');
+    mat            = mat.replace(/\$\{type\}/gi, type);
+    mat            = mat.replace(/\$\{dna\}/gi, dna);
+    let vpath      = base + '/' + config.src + '/views/';
+    let vfile      = vpath + id + '.html';
+    let view       = fs.readFileSync(__dirname + '/templates/view.html', 'utf-8');
+    view           = view.replace(/\$\{id\}/gi, id);
+
+    if (!spinner) {
+
+        spinner = ora({
+            text:    'creating ' + type,
+            spinner: 'dots',
+            color:   'green'
+        });
+
+        spinner.start();
+    }
 
     // Create the material file
     fs.ensureDirSync(mpath);
     if (!fs.existsSync(mfile)) {
         fs.writeFileSync(mfile, mat);
-        log(prefix, 'created', type, name);
+        spinner.text = `created ${type}`;
     } else {
-        log(prefix, type, name, 'already exists');
+        spinner.text = `${type} ${name} already exists`;
     }
 
     // Create the view file
@@ -80,7 +91,7 @@ const createMaterial = (type, opt) => {
     if (opt.style.length > 0) {
         let sopt     = _.clone(opt);
         sopt['name'] = opt.style;
-        createStyle(opt);
+        createStyle(opt, spinner);
     }
 };
 const createMaterialPrompt = (type, opt) => {
@@ -130,7 +141,7 @@ const createMaterialPrompt = (type, opt) => {
     });
 };
 
-const createStyle = (opt) => {
+const createStyle = (opt, spinner) => {
     let name      = slugify(opt.name).toLowerCase();
     let theme     = opt['theme'] || config.theme;
     let spath     = base + '/' + config.src + '/assets/toolkit/styles/themes/' + theme + '/';
@@ -139,22 +150,30 @@ const createStyle = (opt) => {
     let style     = fs.readFileSync(sspath + '_style.scss', 'utf-8');
     let fnd       = `@import '${name}'`;
 
+    if (!spinner) {
+        spinner = ora({
+            text:    'creating ' + type,
+            spinner: 'dots',
+            color:   'green'
+        });
+        spinner.start();
+    }
+
     if (name === 'style') {
-        log(prefix, 'create style error:', 'style is a reserved name');
+        spinner.text = `create style error: style is a reserved name`;
         return;
     }
 
     fs.ensureDirSync(spath);
     if (!fs.existsSync(sfile)) {
         fs.writeFileSync(sfile, `/** ${name} styles **/`);
-        log(prefix, 'created style sheet', '_'+name+'.scss');
+        spinner.text = `created style sheet _${name}.scss`;
     } else {
-        log(prefix, 'style sheet', '_'+name+'.scss', 'already exists');
+        spinner.text = `style sheet _${name}.scss already exists`;
     }
 
     // Updated the theme > style.scss file
     if (style.indexOf(fnd) < 0) {
-
         let line    = fs.readFileSync(__dirname + '/templates/import.scss', 'utf-8');
         line        = line.replace(/\$\{name\}/gi, name);
         style       += line;
@@ -198,7 +217,7 @@ const createStylePrompt = (opt) => {
     });
 };
 
-const createTemplate = (opt) => {
+const createTemplate = (opt, spinner) => {
     let name     = slugify(opt['name']).toLowerCase();
     let title    = name.replace(/-/gi, ' ');
     let tpath    = base + '/' + config.src + '/views/templates/';
@@ -206,13 +225,22 @@ const createTemplate = (opt) => {
     let tmp      = fs.readFileSync(__dirname + '/templates/page.html', 'utf-8');
     tmp          = tmp.replace(/\$\{title\}/gi, title);
 
-    if (!fs.existsSync(tfile)) {
-        fs.writeFileSync(tfile, tmp);
-        log(prefix, 'created template:', tfile);
-    } else {
-        log(prefix, 'template', name, 'already exists');
+    if (!spinner) {
+        spinner = ora({
+            text:    'creating ' + type,
+            spinner: 'dots',
+            color:   'green'
+        });
+
+        spinner.start();
     }
 
+    if (!fs.existsSync(tfile)) {
+        fs.writeFileSync(tfile, tmp);
+        spinner.text = 'created template: ' + tfile;
+    } else {
+        spinner.text = `template ${name}.html already exists`;
+    }
 };
 const createTemplatePrompt = (opt) => {
 
@@ -250,8 +278,17 @@ const createTemplatePrompt = (opt) => {
     });
 };
 
-const createPage = (opt) => {
-    log(prefix, 'creating page', opt.label + '...');
+const createPage = (opt, spinner) => {
+    if (!spinner) {
+
+        spinner = ora({
+            text:    'creating ' + type,
+            spinner: 'dots',
+            color:   'green'
+        });
+
+        spinner.start();
+    }
 
     let path = `${base}/data`;
     let file = path + '/pages.json';
@@ -275,14 +312,12 @@ const createPage = (opt) => {
 
         fs.writeFileSync(file, output);
 
-        log(prefix, 'created page', opt.label);
+        spinner.text = `create page ${opt.label}`;
     } else {
-        log(prefix, opt.label, 'page already exists');
+        spinner.text = `page ${opt.label} already exists`;
     }
 
-    process.exit();
 };
-
 const createPagePrompt = (opt) => {
 
     let params = {};
@@ -326,6 +361,8 @@ const createPagePrompt = (opt) => {
 };
 
 const install = {
+    spinner: null,
+
     init: (opt) => {
         let params      = {};
         let contents    = [];
@@ -394,7 +431,13 @@ const install = {
     },
 
     start: (opt) => {
-        log(prefix, 'downloading... this may take awhile.');
+        install.spinner = ora({
+            text:    'downloading, this may take awhile...',
+            spinner: 'dots',
+            color:   'green'
+        });
+
+        install.spinner.start();
 
         // Create the tmp directory if it doesn't exist.
         fs.ensureDirSync(`${base}/tmp`);
@@ -403,8 +446,7 @@ const install = {
         request(config.install)
         .pipe(fs.createWriteStream(`${base}/tmp/butter.zip`))
         .on('close', function () {
-            log(prefix, 'download complete!');
-            log(prefix, 'unzipping...');
+            install.spinner.text = 'download complete!';
 
             // next -> unzip
             setTimeout(install.unzip, 2000, opt);
@@ -412,6 +454,8 @@ const install = {
     },
 
     unzip: (opt) => {
+        install.spinner.text = 'unzipping...';
+
         decompress(`${base}/tmp/butter.zip`, base, {strip: 1}).then(() => {
             // Delete the tmp directory
             fs.removeSync(`${base}/tmp`);
@@ -424,37 +468,134 @@ const install = {
     },
 
     lockdown: (opt) => {
-        log(prefix, 'securing...');
+        install.spinner.text = 'securing...';
         fs.writeFileSync(`${base}/.htpasswd`, `${opt.username}:${opt.password}`);
         install.npm(opt);
     },
 
     npm: (opt) => {
-        log(prefix, 'installing dependencies... this may take awhile.');
-        exec('npm install', (err) => {
-            if (err) {
-                log(prefix, err);
-                process.exit();
-            } else {
-                install.build(opt);
-            }
+        install.spinner.text    = 'installing dependencies, this may take awhile...';
+        let pi                  = false;
+        let snpm                = spawn('npm', ['install']);
+
+        snpm.stdout.on('data', (data) => {
+            let txt    = data.toString();
+            txt        = txt.replace(/\r?\n|\r/g, '');
+
+            if (txt.indexOf('post_install.js') > -1 && pi !== true) { pi = true; }
+            if (pi === true) { return; }
+
+            txt = (txt.indexOf('│') > -1) ? 'dependency install complete!' : txt;
+
+            install.spinner.text = txt;
+        });
+
+        snpm.stdout.on('error', (err) => {
+            install.spinner.fail(err);
+        });
+
+        snpm.stdout.on('close', () => {
+            install.build(opt);
         });
     },
 
     build: () => {
-        log(prefix, 'building...');
-        exec('gulp', (err) => {
-            if (err) {
-                log(prefix, err);
-            } else {
-                log(prefix, 'install complete!');
-                log(prefix, 'run `npm test` to launch Butter.');
-            }
-            process.exit();
+        install.spinner.text = 'building...';
+
+        let gulp = spawn('gulp');
+        gulp.stdout.on('data', (data) => {
+            let txt    = data.toString();
+            txt        = txt.replace(/\r?\n|\r/g, '');
+            install.spinner.text = txt;
         });
+
+        gulp.stdout.on('error', (err) => {
+            spinner.fail(err);
+        });
+
+        gulp.stdout.on('close', () => {
+            install.spinner.text = 'build complete';
+            setTimeout(install.complete, 1000);
+        });
+    },
+
+    complete: () => {
+        install.spinner.succeed('install complete!');
+        log(prefix, 'run `butter launch` to start the dev environment');
     }
 };
 
+const ejectPrompt = (path) => {
+
+    if (path) {
+        eject(path);
+    } else {
+        let schema = {
+            properties: {
+                path: {
+                    url: {
+                        required:    true,
+                        description: chalk.yellow('Output directory:'),
+                        message:     'path is a required parameter'
+                    }
+                }
+            }
+        };
+
+        prompt.message   = '  > ';
+        prompt.delimiter = '';
+        prompt.start();
+        prompt.get(schema, (err, result) => {
+            if (err) {
+                log(prefix, chalk.red('eject error:'), err);
+                process.exit();
+            } else {
+                eject(result['path']);
+            }
+        });
+    }
+};
+const eject = (path) => {
+
+    let spinner = ora({
+        text       : 'ejecting assets...',
+        spinner    : 'dots',
+        color      : 'green'
+    });
+
+    log('');
+
+    spinner.start();
+
+    let gulp = spawn('gulp');
+    gulp.stdout.on('data', (data) => {
+        let txt         = data.toString();
+        txt             = txt.replace(/\r?\n|\r/g, '');
+        txt             = txt.replace( /-+/g, '-');
+        txt             = String(txt).trim();
+        spinner.text    = txt;
+    });
+
+    gulp.stdout.on('error', (err) => {
+        spinner.fail(err);
+    });
+
+    gulp.stdout.on('close', () => {
+        let src = base +'/dist/assets';
+
+        spinner.text = 'copying assets...';
+
+        fs.ensureDirSync(path);
+        fs.copySync(src, path);
+
+        // Remove unnecessary directories
+        fs.removeSync(path + '/fabricator');
+        fs.removeSync(path + '/toolkit/images/fpo');
+
+        spinner.succeed('eject complete!');
+        log('');
+    });
+};
 
 /**
  *
@@ -531,18 +672,27 @@ program.command('create <type>')
 
     type = String(type).toLowerCase();
 
+    let spinner = ora({
+        text:    'creating ' + type,
+        spinner: 'dots',
+        color:   'green'
+    });
+    spinner.start();
+
     switch (type) {
         case 'style':
-            createStylePrompt(opt);
+            createStylePrompt(opt, spinner);
             break;
 
         case 'template':
-            createTemplatePrompt(opt);
+            createTemplatePrompt(opt, spinner);
             break;
 
         default:
-            createMaterialPrompt(type, opt);
+            createMaterialPrompt(type, opt, spinner);
     }
+
+    spinner.succeed(`create complete!`);
 })
 .on('--help', () => {
     log('  Examples:');
@@ -555,9 +705,28 @@ program.command('create <type>')
 program.command('launch')
 .description('Launch Butter and listen for changes')
 .action(() => {
-    let gulp = spawn('gulp', ['--dev']);
+    let spinner = ora({
+        text       : 'Launching Butter...',
+        spinner    : 'dots',
+        color      : 'green'
+    });
+
+    log('');
+
+    spinner.start();
+
+    let msg     = 'Running Butter: Press cntr + c to exit  ';
+    let gulp    = spawn('gulp', ['--dev']);
+
     gulp.stdout.on('data', function (data) {
-        log(data.toString());
+        let txt    = data.toString();
+        txt        = txt.replace(/\r?\n|\r/g, '');
+        txt        = txt.replace( /-+/g, '-');
+        txt        = String(txt).trim();
+        txt        = (txt.length < 3) ? msg : txt;
+        txt        = (txt.indexOf('waiting for changes before restart') > -1) ? msg : txt;
+
+        spinner.text = txt;
     });
 })
 .on('--help', () => {
@@ -571,15 +740,33 @@ program.command('launch')
 program.command('build')
 .description('Build Butter')
 .action(() => {
-    log(prefix, 'building assets...');
 
-    // Run gulp build
-    exec('gulp', (err) => {
-        if (err) {
-            log(prefix, err);
-        } else {
-            log(prefix, 'build complete!');
-        }
+    let spinner = ora({
+        text       : 'building assets...',
+        spinner    : 'dots',
+        color      : 'green'
+    });
+
+    log('');
+
+    spinner.start();
+
+    let gulp    = spawn('gulp');
+    gulp.stdout.on('data', (data) => {
+        let txt         = data.toString();
+        txt             = txt.replace(/\r?\n|\r/g, '');
+        txt             = txt.replace( /-+/g, '-');
+        txt             = String(txt).trim();
+        spinner.text    = txt;
+    });
+
+    gulp.stdout.on('error', (err) => {
+        spinner.fail(err);
+    });
+
+    gulp.stdout.on('close', () => {
+        spinner.succeed('build complete!');
+        log('');
     });
 })
 .on('--help', () => {
@@ -590,30 +777,9 @@ program.command('build')
     log('');
 });
 
-program.command('eject <path>')
-.description('Ejects the butter ~/dist/assets directory to the specified <path>')
-.action((path) => {
-    log(prefix, 'building assets...');
-
-    // Run gulp build
-    exec('gulp', (err) => {
-        if (err) {
-            log(prefix, err);
-        } else {
-            let src = base +'/dist/assets';
-
-            log(prefix, 'copying assets...');
-            fs.ensureDirSync(path);
-            fs.copySync(src, path);
-
-            // Remove unnecessary directories
-            fs.removeSync(path + '/fabricator');
-            fs.removeSync(path + '/toolkit/images/fpo');
-
-            log(prefix, 'eject complete!');
-        }
-    });
-})
+program.command('eject [path]')
+.description('Ejects the butter ~/dist/assets directory to the specified [path]')
+.action(ejectPrompt)
 .on('--help', () => {
     log('  Examples:');
     log('    $ butter eject "/Users/me/Desktop"');
