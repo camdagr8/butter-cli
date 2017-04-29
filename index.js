@@ -704,7 +704,8 @@ program.command('create <type>')
 
 program.command('launch')
 .description('Launch Butter and listen for changes')
-.action(() => {
+.option('-p, --port [port]', 'the server port')
+.action((opt) => {
     let spinner = ora({
         text       : 'Launching Butter...',
         spinner    : 'dots',
@@ -713,10 +714,13 @@ program.command('launch')
 
     log('');
 
+
     spinner.start();
 
+    let env     = (opt.hasOwnProperty('port')) ? ['--dev', '--port', opt.port] : ['--dev'];
+
+    let gulp    = spawn('gulp', env);
     let msg     = 'Running Butter: Press ctrl + c to exit  ';
-    let gulp    = spawn('gulp', ['--dev']);
 
     gulp.stdout.on('data', function (data) {
         let txt    = data.toString();
@@ -733,10 +737,7 @@ program.command('launch')
 
     process.on('SIGINT', function () {
         gulp.kill();
-
-        spinner.succeed('Butter terminated');
-        log('');
-
+        spinner.succeed('Butter terminated\n');
         process.exit();
     });
 })
@@ -807,11 +808,7 @@ program.command('page')
 .action(createPagePrompt)
 .on('--help', () => {
     log('  Examples:');
-    log('    $ butter eject "/Users/me/Desktop"');
-
-
-    // Extra line
-    log('');
+    log('    $ butter eject "/Users/me/Desktop"\n');
 });
 
 
