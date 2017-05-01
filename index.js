@@ -29,9 +29,9 @@ const ora           = require('ora');
  * Constants
  * -----------------------------------------------------------------------------
  */
-const base        = path.resolve(process.cwd());
-const log         = console.log;
-const types       = ['atom', 'helper', 'molecule', 'organism', 'style', 'template', 'page'];
+const base          = path.resolve(process.cwd());
+const log           = console.log.bind(console);
+const types         = ['atom', 'helper', 'molecule', 'organism', 'style', 'template', 'page'];
 
 /**
  * -----------------------------------------------------------------------------
@@ -46,6 +46,125 @@ program.version(pkg.version);
  * Functions
  * -----------------------------------------------------------------------------
  */
+const cleanse = (opt, callback) => {
+    let spinner = ora({
+        text       : 'cleansing...',
+        spinner    : 'dots',
+        color      : 'green'
+    });
+
+    log('');
+
+    spinner.start();
+
+    let cleanseScripts    = (opt.hasOwnProperty('scripts')) ? opt.scripts : 'n';
+    cleanseScripts        = String(cleanseScripts).toLowerCase();
+
+    let cleanseStyles    = (opt.hasOwnProperty('styles')) ? opt.styles : 'n';
+    cleanseStyles        = String(cleanseStyles).toLowerCase();
+
+    let spath, cpath;
+
+    // Clear scripts
+    if (cleanseScripts === 'y') {
+        spinner.text    = 'deleting scripts...';
+        spath           = base + '/src/assets/toolkit/scripts';
+        fs.removeSync(spath);
+    }
+
+    // Clear styles
+    if (cleanseStyles === 'y') {
+        spinner.text    = 'deleting styles...';
+        cpath           = base + '/src/assets/toolkit/styles';
+        fs.removeSync(cpath);
+    }
+
+    // Clear materials
+    spinner.text    = `deleting materials...`;
+    let mpath       = base + '/src/materials';
+    fs.removeSync(mpath);
+
+    // Clear views
+    spinner.text    = 'deleting views...';
+    let vpath       = base + '/src/views/';
+    let views       = fs.readdirSync(vpath);
+
+    views.forEach((file) => {
+        let arr    = file.split('.');
+        let ext    = arr.pop();
+        ext        = String(ext).toLowerCase();
+
+        if (ext === 'html') {
+            let fpath       = vpath + file;
+            spinner.text    = `deleting: ${fpath}`;
+
+            fs.unlinkSync(fpath);
+        }
+    });
+
+    if (cleanseScripts === 'y') {
+        fs.ensureDirSync(spath + '/vendor');
+        fs.ensureDirSync(spath + '/controller');
+        fs.ensureFileSync(spath + '/toolkit.js');
+    }
+
+    if (cleanseStyles === 'y') {
+        fs.ensureDirSync(cpath + '/vendor');
+        fs.ensureFileSync(cpath + '/themes/default/_style.scss');
+        fs.ensureFileSync(cpath + '/toolkit.scss');
+        fs.writeFileSync(cpath + '/toolkit.scss', "@import 'themes/default/style';");
+    }
+
+    fs.ensureDirSync(mpath);
+
+    if (typeof callback === 'function') {
+        spinner.text = 'cleanse complete!';
+        callback(opt);
+    } else {
+        spinner.succeed('cleanse complete!');
+
+        log('');
+        process.exit();
+    }
+};
+const cleansePrompt = ()  => {
+    let schema = {
+        properties: {
+            warn: {
+                description: chalk.yellow('Cleanse will remove all materials, views, and styles. Are you sure? (Y/N):')
+            },
+            scripts: {
+                description: chalk.yellow('Remove scripts? (Y/N):')
+            },
+            styles: {
+                description: chalk.yellow('Remove styles? (Y/N):')
+            },
+            conf: {
+                description: chalk.yellow('Are you 100% sure you want to continue? (Y/N):')
+            }
+        }
+    };
+
+    prompt.message   = '  > ';
+    prompt.delimiter = '';
+    prompt.start();
+    prompt.get(schema, (err, result) => {
+        if (err) {
+            log(prefix, chalk.red('cleanse error:'), err);
+            process.exit();
+        } else {
+            result['warn'] = (result.hasOwnProperty('warn')) ? String(result.warn).toLowerCase() : 'n';
+            result['conf'] = (result.hasOwnProperty('conf')) ? String(result.conf).toLowerCase() : 'n';
+
+            if (result.warn !== 'y' || result.conf !== 'y') {
+                process.exit();
+            } else {
+                cleanse(result);
+            }
+        }
+    });
+};
+
 const createMaterial = (type, opt, spinner) => {
 
     type           = type || 'TYPE';
@@ -504,9 +623,11 @@ const install = {
 
         let gulp = spawn('gulp');
         gulp.stdout.on('data', (data) => {
-            let txt    = data.toString();
-            txt        = txt.replace(/\r?\n|\r/g, '');
-            install.spinner.text = txt;
+            let txt                 = data.toString();
+            txt                     = txt.replace(/\r?\n|\r/g, '');
+            txt                     = txt.replace(/\[(.+?)\]/g, '');
+            txt                     = txt.trim();
+            install.spinner.text    = txt;
         });
 
         gulp.stdout.on('error', (err) => {
@@ -525,36 +646,6 @@ const install = {
     }
 };
 
-const ejectPrompt = (path) => {
-
-    if (path) {
-        eject(path);
-    } else {
-        let schema = {
-            properties: {
-                path: {
-                    url: {
-                        required:    true,
-                        description: chalk.yellow('Output directory:'),
-                        message:     'path is a required parameter'
-                    }
-                }
-            }
-        };
-
-        prompt.message   = '  > ';
-        prompt.delimiter = '';
-        prompt.start();
-        prompt.get(schema, (err, result) => {
-            if (err) {
-                log(prefix, chalk.red('eject error:'), err);
-                process.exit();
-            } else {
-                eject(result['path']);
-            }
-        });
-    }
-};
 const eject = (path) => {
 
     let spinner = ora({
@@ -596,18 +687,35 @@ const eject = (path) => {
         log('');
     });
 };
+const ejectPrompt = (path) => {
 
-/**
- *
- * @function validType(type)
- *
- * @author Cam Tullos cam@tullos.ninja
- * @since 1.0.0
- *
- * @description Validates the material type is an atom, molecule, or organism.
- * @param type {String} The material type to validate.
- * @returns {Boolean}
- */
+    if (path) {
+        eject(path);
+    } else {
+        let schema = {
+            properties: {
+                path: {
+                    required:    true,
+                    description: chalk.yellow('Output directory:'),
+                    message:     'path is a required parameter'
+                }
+            }
+        };
+
+        prompt.message   = '  > ';
+        prompt.delimiter = '';
+        prompt.start();
+        prompt.get(schema, (err, result) => {
+            if (err) {
+                log(prefix, chalk.red('eject error:'), err);
+                process.exit();
+            } else {
+                eject(result['path']);
+            }
+        });
+    }
+};
+
 const validType = (type) => {
     if (!type) {
         return false;
@@ -768,6 +876,7 @@ program.command('build')
         let txt         = data.toString();
         txt             = txt.replace(/\r?\n|\r/g, '');
         txt             = txt.replace( /-+/g, '-');
+        txt             = txt.replace(/\[(.+?)\]/g, '');
         txt             = String(txt).trim();
         spinner.text    = txt;
     });
@@ -811,7 +920,13 @@ program.command('page')
     log('    $ butter eject "/Users/me/Desktop"\n');
 });
 
-
+program.command('cleanse')
+.description('Removes all materials, views, and styles.')
+.action(cleansePrompt)
+.on('--help', () => {
+    log('  Examples:');
+    log('    $ butter cleanse\n');
+});
 
 
 /**
