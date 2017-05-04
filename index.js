@@ -165,7 +165,29 @@ const cleansePrompt = ()  => {
     });
 };
 
-const createMaterial = (type, opt, spinner) => {
+const create = (type, opt) => {
+    if (validType(type) !== true) {
+        log(prefix, 'error:', 'create <type> must be `' + types.join('`, `') + '`');
+        return;
+    }
+
+    type = String(type).toLowerCase();
+
+    switch (type) {
+        case 'style':
+            createStylePrompt(opt);
+            break;
+
+        case 'template':
+            createTemplatePrompt(opt);
+            break;
+
+        default:
+            createMaterialPrompt(type, opt);
+    }
+};
+
+const createMaterial = (type, opt) => {
 
     type           = type || 'TYPE';
     let name       = slugify(opt['name']).toLowerCase();
@@ -181,17 +203,14 @@ const createMaterial = (type, opt, spinner) => {
     let vfile      = vpath + id + '.html';
     let view       = fs.readFileSync(__dirname + '/templates/view.html', 'utf-8');
     view           = view.replace(/\$\{id\}/gi, id);
+    let spinner    = ora({
+        text:    'creating ' + type,
+        spinner: 'dots',
+        color:   'green'
+    });
 
-    if (!spinner) {
 
-        spinner = ora({
-            text:    'creating ' + type,
-            spinner: 'dots',
-            color:   'green'
-        });
-
-        spinner.start();
-    }
+    spinner.start();
 
     // Create the material file
     fs.ensureDirSync(mpath);
@@ -211,6 +230,9 @@ const createMaterial = (type, opt, spinner) => {
         let sopt     = _.clone(opt);
         sopt['name'] = opt.style;
         createStyle(opt, spinner);
+    } else {
+        spinner.succeed('create complete!');
+        log('');
     }
 };
 const createMaterialPrompt = (type, opt) => {
@@ -271,7 +293,7 @@ const createStyle = (opt, spinner) => {
 
     if (!spinner) {
         spinner = ora({
-            text:    'creating ' + type,
+            text:    'creating style',
             spinner: 'dots',
             color:   'green'
         });
@@ -299,6 +321,9 @@ const createStyle = (opt, spinner) => {
 
         fs.writeFileSync(sspath + '_style.scss', style);
     }
+
+    spinner.succeed('create complete!');
+    log('');
 };
 const createStylePrompt = (opt) => {
 
@@ -336,23 +361,19 @@ const createStylePrompt = (opt) => {
     });
 };
 
-const createTemplate = (opt, spinner) => {
-    let name     = slugify(opt['name']).toLowerCase();
-    let title    = name.replace(/-/gi, ' ');
-    let tpath    = base + '/' + config.src + '/views/templates/';
-    let tfile    = tpath + name + '.html';
-    let tmp      = fs.readFileSync(__dirname + '/templates/page.html', 'utf-8');
-    tmp          = tmp.replace(/\$\{title\}/gi, title);
-
-    if (!spinner) {
-        spinner = ora({
-            text:    'creating ' + type,
-            spinner: 'dots',
-            color:   'green'
-        });
-
-        spinner.start();
-    }
+const createTemplate = (opt) => {
+    let name       = slugify(opt['name']).toLowerCase();
+    let title      = name.replace(/-/gi, ' ');
+    let tpath      = base + '/' + config.src + '/views/templates/';
+    let tfile      = tpath + name + '.html';
+    let tmp        = fs.readFileSync(__dirname + '/templates/page.html', 'utf-8');
+    tmp            = tmp.replace(/\$\{title\}/gi, title);
+    let spinner    = ora({
+        text:    'creating template...',
+        spinner: 'dots',
+        color:   'green'
+    });
+    spinner.start();
 
     if (!fs.existsSync(tfile)) {
         fs.writeFileSync(tfile, tmp);
@@ -360,6 +381,9 @@ const createTemplate = (opt, spinner) => {
     } else {
         spinner.text = `template ${name}.html already exists`;
     }
+
+    spinner.succeed('create complete!');
+    log('');
 };
 const createTemplatePrompt = (opt) => {
 
@@ -397,17 +421,15 @@ const createTemplatePrompt = (opt) => {
     });
 };
 
-const createPage = (opt, spinner) => {
-    if (!spinner) {
+const createPage = (opt) => {
 
-        spinner = ora({
-            text:    'creating ' + type,
-            spinner: 'dots',
-            color:   'green'
-        });
+    let spinner = ora({
+        text:    'creating ' + type,
+        spinner: 'dots',
+        color:   'green'
+    });
 
-        spinner.start();
-    }
+    spinner.start();
 
     let path = `${base}/data`;
     let file = path + '/pages.json';
@@ -435,6 +457,9 @@ const createPage = (opt, spinner) => {
     } else {
         spinner.text = `page ${opt.label} already exists`;
     }
+
+    spinner.succeed('create complete!');
+    log('');
 
 };
 const createPagePrompt = (opt) => {
@@ -606,7 +631,7 @@ const install = {
 
             txt = (txt.indexOf('│') > -1) ? 'dependency install complete!' : txt;
 
-            install.spinner.text = txt;
+            install.spinner.text = String(txt).substr(0, 20);
         });
 
         snpm.stdout.on('error', (err) => {
@@ -644,6 +669,44 @@ const install = {
         install.spinner.succeed('install complete!');
         log(prefix, 'run `butter launch` to start the dev environment');
     }
+};
+
+const launch = (opt) => {
+    let spinner = ora({
+        text       : 'Launching Butter...',
+        spinner    : 'dots',
+        color      : 'green'
+    });
+
+    log('');
+
+    spinner.start();
+
+    let env     = (opt.hasOwnProperty('port')) ? ['--dev', '--port', opt.port] : ['--dev'];
+
+    let gulp    = spawn('gulp', env);
+    let msg     = 'Running Butter: Press ctrl + c to exit  ';
+
+    gulp.stdout.on('data', function (data) {
+        let txt    = data.toString();
+        txt        = txt.replace(/\r?\n|\r/g, '');
+        txt        = txt.replace( /-+/g, '-');
+        txt        = txt.replace(/\[(.+?)\]/g, '');
+        txt        = String(txt).trim();
+        txt        = (txt.length < 3) ? msg : txt;
+        txt        = (txt.indexOf('Reloading') > -1) ? msg : txt;
+        txt        = (txt.indexOf('UI External') > -1) ? msg : txt;
+        txt        = (txt.indexOf('Server running') > -1) ? msg : txt;
+        txt        = (txt.indexOf('waiting for changes before restart') > -1) ? msg : txt;
+
+        spinner.text = txt;
+    });
+
+    process.on('SIGINT', function () {
+        gulp.kill();
+        spinner.succeed('Butter terminated\n');
+        process.exit();
+    });
 };
 
 const eject = (path) => {
@@ -772,36 +835,7 @@ program.command('create <type>')
 .option('-g, --group   [group]', 'the group to add the new material to')
 .option('-s, --style   [style]', 'the style sheet to create')
 .option('-d, --dna     [dna]',   'the DNA-ID for the new material')
-.action((type, opt) => {
-    if (validType(type) !== true) {
-        log(prefix, 'error:', 'create <type> must be `' + types.join('`, `') + '`');
-        return;
-    }
-
-    type = String(type).toLowerCase();
-
-    let spinner = ora({
-        text:    'creating ' + type,
-        spinner: 'dots',
-        color:   'green'
-    });
-    spinner.start();
-
-    switch (type) {
-        case 'style':
-            createStylePrompt(opt, spinner);
-            break;
-
-        case 'template':
-            createTemplatePrompt(opt, spinner);
-            break;
-
-        default:
-            createMaterialPrompt(type, opt, spinner);
-    }
-
-    spinner.succeed(`create complete!`);
-})
+.action(create)
 .on('--help', () => {
     log('  Examples:');
     log('    $ butter create molecule --name "btn-primary" --group "buttons" --style "button-primary" --dna "btn-primary"');
@@ -813,42 +847,7 @@ program.command('create <type>')
 program.command('launch')
 .description('Launch Butter and listen for changes')
 .option('-p, --port [port]', 'the server port')
-.action((opt) => {
-    let spinner = ora({
-        text       : 'Launching Butter...',
-        spinner    : 'dots',
-        color      : 'green'
-    });
-
-    log('');
-
-
-    spinner.start();
-
-    let env     = (opt.hasOwnProperty('port')) ? ['--dev', '--port', opt.port] : ['--dev'];
-
-    let gulp    = spawn('gulp', env);
-    let msg     = 'Running Butter: Press ctrl + c to exit  ';
-
-    gulp.stdout.on('data', function (data) {
-        let txt    = data.toString();
-        txt        = txt.replace(/\r?\n|\r/g, '');
-        txt        = txt.replace( /-+/g, '-');
-        txt        = (txt.indexOf('waiting for changes before restart') > -1) ? msg : txt;
-        txt        = txt.replace(/\[(.+?)\]/g, '');
-        txt        = String(txt).trim();
-        txt        = (txt.indexOf('UI External') > -1) ? msg : txt;
-        txt        = (txt.length < 3) ? msg : txt;
-
-        spinner.text = txt;
-    });
-
-    process.on('SIGINT', function () {
-        gulp.kill();
-        spinner.succeed('Butter terminated\n');
-        process.exit();
-    });
-})
+.action(launch)
 .on('--help', () => {
     log('  Examples:');
     log('    $ butter launch');
