@@ -1,5 +1,8 @@
 {
   "src": "src",
   "theme": "default",
-  "install": "https://github.com/reykjavikingur/breakfast-butter/archive/master.zip"
+  "install": "https://github.com/reykjavikingur/breakfast-butter/archive/master.zip",
+  "infusions": [
+    {"name": "bootstrap-4", "url": "https://github.com/camdagr8/brkfst-pkg-bootstrap-4/archive/master.zip"}
+  ]
 }

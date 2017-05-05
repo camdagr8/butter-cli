@@ -18,7 +18,6 @@ const slugify       = require('slugify');
 const config        = require(__dirname+'/config.json');
 const _             = require('underscore');
 const prefix        = chalk.yellow('[butter]');
-const exec          = require('child_process').exec;
 const spawn         = require('child_process').spawn;
 const request       = require('request');
 const decompress    = require('decompress');
@@ -504,6 +503,180 @@ const createPagePrompt = (opt) => {
     });
 };
 
+const infuse = (toolkit, opt) => {
+    log('');
+
+    toolkit        = toolkit.toLowerCase();
+    let path       = base + '/src/lib/' + toolkit;
+    let check      = base + '/src/lib/__' + toolkit;
+    let spinner    = ora({
+        text       : 'Infusing '+toolkit+'...',
+        spinner    : 'dots',
+        color      : 'green'
+    }).start();
+
+    if (!fs.existsSync(path)) {
+
+        if (fs.existsSync(check)) {
+            spinner.text = 'infusing materials...';
+            fs.renameSync(check, path);
+        } else {
+            // Install from local
+            if (opt.hasOwnProperty('pkg')) {
+                // Make sure the pkg is legit
+                if (fs.existsSync(opt.pkg)) {
+                    spinner.text = 'retrieving package...';
+                    fs.ensureDirSync(path);
+
+                    let ext = opt.pkg.substr(opt.pkg.length - 4).toLowerCase();
+                    if (ext === '.zip') {
+                        decompress(opt.pkg, path, {strip: 1}).then(() => {
+                            spinner.succeed('package unzipped!');
+                            infuse(toolkit, opt);
+                        }).catch((err) => {
+                            spinner.fail(err);
+                            log('');
+                            process.exit();
+                        });
+                    } else {
+                        fs.copySync(opt.pkg, path);
+                        spinner.succeed('package copied!');
+                        infuse(toolkit, opt);
+                    }
+                } else {
+                    spinner.fail('package ' + opt.pkg + ' does not exist');
+                    log('');
+                    process.exit();
+                }
+
+            } else {
+                spinner.text = 'downloading package...';
+                let url = (opt.hasOwnProperty('url')) ? opt : null;
+                if (url === null) {
+                    let pkg = _.findWhere(config.infusions, {name: toolkit});
+                    url = (!_.isEmpty(pkg)) ? pkg : null;
+                }
+
+                if (url === null || _.isEmpty(url)) {
+                    spinner.fail('unable to find package ' + toolkit);
+                    log('');
+                    process.exit();
+                } else {
+                    url = url.url;
+                }
+
+                fs.ensureDirSync(`${path}/tmp`);
+
+                request(url)
+                .on('error', function(err) {
+                    spinner.fail(err);
+                    log('');
+                    process.exit();
+                })
+                .on('close', function () {
+                    decompress(`${path}/tmp/pkg.zip`, path, {strip: 1}).then(() => {
+                        spinner.succeed('package unzipped!');
+                        fs.removeSync(`${path}/tmp`);
+                        infuse(toolkit, opt);
+                    }).catch((err) => {
+                        spinner.fail(err);
+                        log('');
+                        process.exit();
+                    });
+                })
+                .pipe(fs.createWriteStream(`${path}/tmp/pkg.zip`));
+            }
+
+            return;
+        }
+    }
+
+    // Insert lib imports
+    let lfile = base + '/src/assets/toolkit/styles/libs.scss';
+    fs.ensureFileSync(lfile);
+
+    // Get contents of lib.scss file
+    let cont    = fs.readFileSync(lfile, 'utf-8');
+    let libs    = [];
+    let hdr     = `/** ${toolkit} **/`;
+    if (cont.indexOf(hdr) < 0) { libs.push('\n\n' + hdr); }
+
+    // Update lib.scss file
+    let conf = fs.readJsonSync(path + '/config.json');
+    if (conf.hasOwnProperty('styles')) {
+        spinner.text    = 'infusing styles...';
+        let styles      = (typeof conf.styles === 'string') ? [conf.styles] : conf.styles;
+
+        styles.forEach((style) => {
+            let thm    = (opt.hasOwnProperty('theme')) ? opt.theme : config.theme;
+            let str    = `@import '${style}';`;
+            str        = str.replace(/\[THEME]/gi, thm);
+            str        = str.trim();
+
+            if (cont.indexOf(str) < 0) {
+                libs.push(str);
+            }
+        });
+    }
+
+    if (libs.length > 0) {
+        fs.appendFileSync(lfile, libs.join('\n'));
+    }
+
+    spinner.succeed('infusion complete!');
+    log('');
+};
+
+const defuse = (toolkit, opt) => {
+    log('');
+
+    let spinner = ora({
+        text       : 'Defusing...',
+        spinner    : 'dots',
+        color      : 'green'
+    }).start();
+
+    toolkit  = toolkit.toLowerCase();
+    let path = base + '/src/lib/' + toolkit;
+
+    // Remove the style sheet import
+    // @import './src/lib/TOOLKIT/assets/styles/';
+
+    let spath = base + '/src/assets/toolkit/styles/libs.scss';
+    if (fs.existsSync(spath)) {
+        let cont  = fs.readFileSync(spath, 'utf-8');
+        let lines = cont.split('\n');
+
+        for (let i = lines.length - 1; i > -1; i--) {
+            if (lines[i].indexOf(toolkit) > -1) {
+                lines.splice(i, 1);
+            }
+        }
+
+        // Update the style sheet
+        cont = lines.join('\n');
+        cont = cont.trim();
+        fs.writeFileSync(spath, cont);
+    }
+
+    // Remove or rename the toolkit dir
+    if (fs.existsSync(path)) {
+
+        if (opt.remove) {
+            fs.removeSync(path);
+        } else {
+            let name = base + '/src/lib/__' + toolkit;
+            fs.renameSync(path, name);
+        }
+        spinner.succeed('defuse complete!');
+
+    } else {
+        spinner.fail(toolkit + ' toolkit does not exist');
+    }
+
+    log('');
+};
+
 const install = {
     spinner: null,
 
@@ -579,14 +752,12 @@ const install = {
             text:    'downloading, this may take awhile...',
             spinner: 'dots',
             color:   'green'
-        });
-
-        install.spinner.start();
+        }).start();
 
         // Create the tmp directory if it doesn't exist.
         fs.ensureDirSync(`${base}/tmp`);
 
-        // Download the most recent version of jam
+        // Download the most recent version of butter
         request(config.install)
         .pipe(fs.createWriteStream(`${base}/tmp/butter.zip`))
         .on('close', function () {
@@ -920,13 +1091,34 @@ program.command('page')
 });
 
 program.command('cleanse')
-.description('Removes all materials, views, and styles.')
+.description('Removes all materials, views, and styles')
 .action(cleansePrompt)
 .on('--help', () => {
     log('  Examples:');
     log('    $ butter cleanse\n');
 });
 
+program.command('infuse <toolkit>')
+.description('Add a UI toolkit to the project')
+.option('-t, --theme [theme]', 'theme name to target')
+.option('-p, --pkg [pkg]', 'the directory or local .zip file containing the toolkit to infuse')
+.option('-u, --url [url]', 'the url containing the toolkit to infuse. Must be a .zip file')
+.action(infuse)
+.on('--help', () => {
+    log('  Examples:');
+    log('    $ butter infuse bootstrap-4 --theme "default"');
+    log('    $ butter infuse bootstrap-4 --theme "default" --path "/Development/butter-pkgs/bootstrap-4.zip"');
+    log('    $ butter infuse bootstrap-4 --theme "default" --url "https://github.com/camdagr8/brkfst-pkg-bootstrap-4/archive/master.zip" \n');
+});
+
+program.command('defuse <toolkit>')
+.option('-r, --remove [remove]', 'delete the toolkit files')
+.description('Remove a UI toolkit from the project')
+.action(defuse)
+.on('--help', () => {
+    log('  Examples:');
+    log('    $ butter defuse bootstrap-4\n');
+});
 
 /**
  * -----------------------------------------------------------------------------
