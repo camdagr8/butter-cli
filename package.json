@@ -1,6 +1,6 @@
 {
   "name": "brkfst-butter-cli",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Butter Command-Line Interface",
   "main": "index.js",
   "scripts": {

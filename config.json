@@ -3,6 +3,7 @@
   "theme": "default",
   "install": "https://github.com/reykjavikingur/breakfast-butter/archive/master.zip",
   "infusions": [
-    {"name": "bootstrap-4", "url": "https://github.com/camdagr8/brkfst-pkg-bootstrap-4/archive/master.zip"}
+    {"name": "bootstrap-4",  "url": "https://github.com/camdagr8/brkfst-pkg-bootstrap-4/archive/master.zip"},
+    {"name": "foundation-6", "url": "https://github.com/camdagr8/brkfst-pkg-foundation-6/archive/master.zip"}
   ]
 }
