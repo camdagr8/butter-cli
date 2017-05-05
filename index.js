@@ -507,6 +507,7 @@ const infuse = (toolkit, opt) => {
     log('');
 
     toolkit        = toolkit.toLowerCase();
+    let errs       = [];
     let path       = base + '/src/lib/' + toolkit;
     let check      = base + '/src/lib/__' + toolkit;
     let spinner    = ora({
@@ -568,6 +569,7 @@ const infuse = (toolkit, opt) => {
                 fs.ensureDirSync(`${path}/tmp`);
 
                 request(url)
+                .pipe(fs.createWriteStream(`${path}/tmp/pkg.zip`))
                 .on('error', function(err) {
                     spinner.fail(err);
                     log('');
@@ -583,8 +585,7 @@ const infuse = (toolkit, opt) => {
                         log('');
                         process.exit();
                     });
-                })
-                .pipe(fs.createWriteStream(`${path}/tmp/pkg.zip`));
+                });
             }
 
             return;
@@ -596,35 +597,44 @@ const infuse = (toolkit, opt) => {
     fs.ensureFileSync(lfile);
 
     // Get contents of lib.scss file
-    let cont    = fs.readFileSync(lfile, 'utf-8');
-    let libs    = [];
-    let hdr     = `/** ${toolkit} **/`;
-    if (cont.indexOf(hdr) < 0) { libs.push('\n\n' + hdr); }
+    let cont = fs.readFileSync(lfile, 'utf-8') || '';
+    let libs = [];
+    let hdr  = `/** ${toolkit} **/`;
+    if (cont.indexOf(hdr) < 0) {
+        libs.push('\n\n' + hdr);
+    }
 
     // Update lib.scss file
-    let conf = fs.readJsonSync(path + '/config.json');
-    if (conf.hasOwnProperty('styles')) {
-        spinner.text    = 'infusing styles...';
-        let styles      = (typeof conf.styles === 'string') ? [conf.styles] : conf.styles;
+    spinner.text = 'infusing styles...';
+    if (fs.existsSync(path + '/config.json')) {
+        let conf = fs.readJsonSync(path + '/config.json');
 
-        styles.forEach((style) => {
-            let thm    = (opt.hasOwnProperty('theme')) ? opt.theme : config.theme;
-            let str    = `@import '${style}';`;
-            str        = str.replace(/\[THEME]/gi, thm);
-            str        = str.trim();
+        if (conf.hasOwnProperty('styles')) {
+            let styles   = (typeof conf.styles === 'string') ? [conf.styles] : conf.styles;
 
-            if (cont.indexOf(str) < 0) {
-                libs.push(str);
-            }
-        });
+            styles.forEach((style) => {
+                let thm = (opt.hasOwnProperty('theme')) ? opt.theme : config.theme;
+                let str = `@import '${style}';`;
+                str     = str.replace(/\[THEME]/gi, thm);
+                str     = str.trim();
+
+                if (cont.indexOf(str) < 0) {
+                    libs.push(str);
+                }
+            });
+        }
     }
 
     if (libs.length > 0) {
         fs.appendFileSync(lfile, libs.join('\n'));
     }
 
+    try { fs.unlinkSync(path + '/index.js'); } catch (e) { errs.push(e); }
+    try { fs.unlinkSync(path + '/package.json'); } catch (e) { errs.push(e); }
+
     spinner.succeed('infusion complete!');
     log('');
+
 };
 
 const defuse = (toolkit, opt) => {
