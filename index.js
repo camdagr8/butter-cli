@@ -28,7 +28,7 @@ const ora           = require('ora');
  * Constants
  * -----------------------------------------------------------------------------
  */
-const base          = path.resolve(process.cwd());
+const base            = path.resolve(process.cwd());
 const log           = console.log.bind(console);
 const types         = ['atom', 'helper', 'molecule', 'organism', 'style', 'template', 'page'];
 
@@ -188,11 +188,16 @@ const create = (type, opt) => {
 
 const createMaterial = (type, opt) => {
 
+    // Updated base path if lib flag is supplied.
+    if (opt.hasOwnProperty('lib')) {
+        config.src  += '/lib/' + opt.lib;
+    }
+
     type           = type || 'TYPE';
     let name       = slugify(opt['name']).toLowerCase();
-    let dna        = opt['dna'] || 'DNA-ID';
     let id         = (opt.hasOwnProperty('group')) ? slugify(opt.group).toLowerCase() : name;
     id             = (type === 'helper') ? 'helpers' : id;
+    let dna        = (opt.dna.length > 0) ? slugify(opt['dna']) : name;
     let mpath      = base + '/' + config.src + '/materials/' + id;
     let mfile      = mpath + '/' + name + '.html';
     let mat        = fs.readFileSync(__dirname + '/templates/material.html', 'utf-8');
@@ -209,6 +214,7 @@ const createMaterial = (type, opt) => {
     });
 
 
+    log('');
     spinner.start();
 
     // Create the material file
@@ -247,23 +253,24 @@ const createMaterialPrompt = (type, opt) => {
 
     let schema = {
         properties: {
+            group: {
+                required: true,
+                description: chalk.yellow('Group name:'),
+                message: 'Group is a required'
+            },
             name: {
                 required: true,
                 description: chalk.yellow('Material name:'),
                 message: 'Material name is required'
             },
-            group: {
+            dna: {
                 required: false,
-                description: chalk.yellow('Group name:'),
+                description: chalk.yellow('DNA ID:')
             },
             style: {
                 required: false,
                 description: chalk.yellow('Style sheet name:')
             },
-            dna: {
-                required: false,
-                description: chalk.yellow('DNA ID:')
-            }
         }
     };
 
@@ -276,7 +283,8 @@ const createMaterialPrompt = (type, opt) => {
             log(prefix, chalk.red('create error:'), err);
             process.exit();
         } else {
-            createMaterial(type, result);
+            _.keys(result).forEach((key) => { params[key] = result[key]; });
+            createMaterial(type, params);
         }
     });
 };
@@ -296,6 +304,7 @@ const createStyle = (opt, spinner) => {
             spinner: 'dots',
             color:   'green'
         });
+        log('');
         spinner.start();
     }
 
@@ -590,6 +599,13 @@ const infuse = (toolkit, opt) => {
 
             return;
         }
+    }
+
+    // Import themes directory
+    let tdir     = base + '/src/assets/toolkit/styles/themes/' + toolkit;
+    let tcdir    = path + '/theme';
+    if (!fs.existsSync(tdir) && fs.existsSync(tcdir)) {
+        fs.copySync(tcdir, tdir);
     }
 
     // Insert lib imports
@@ -1016,6 +1032,7 @@ program.command('create <type>')
 .option('-g, --group   [group]', 'the group to add the new material to')
 .option('-s, --style   [style]', 'the style sheet to create')
 .option('-d, --dna     [dna]',   'the DNA-ID for the new material')
+.option('-l, --lib     [lib]',   'the library directory to add the material to')
 .action(create)
 .on('--help', () => {
     log('  Examples:');
