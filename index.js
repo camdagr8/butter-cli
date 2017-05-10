@@ -432,14 +432,14 @@ const createTemplatePrompt = (opt) => {
 const createPage = (opt) => {
 
     let spinner = ora({
-        text:    'creating ' + type,
+        text:    'creating page',
         spinner: 'dots',
         color:   'green'
     });
 
     spinner.start();
 
-    let path = `${base}/data`;
+    let path = `${base}/src/data`;
     let file = path + '/pages.json';
 
     fs.ensureDirSync(path);
