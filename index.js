@@ -882,7 +882,7 @@ const launch = (opt) => {
     let env     = (opt.hasOwnProperty('port')) ? ['--dev', '--port', opt.port] : ['--dev'];
 
     let gulp    = spawn('gulp', env);
-    let msg     = 'Running Butter: Press ctrl + c to exit  ';
+    let msg     = 'Running Butter: Press '+chalk.green('ctrl + c')+' to exit  ';
 
     gulp.stdout.on('data', function (data) {
         let txt    = data.toString();
