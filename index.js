@@ -244,7 +244,7 @@ const createMaterial = (type, opt) => {
 };
 const createMaterialPrompt = (type, opt) => {
     log('');
-    
+
     let params = {};
 
     _.keys(opt._events).forEach((key) => {
@@ -259,8 +259,8 @@ const createMaterialPrompt = (type, opt) => {
         properties: {
             group: {
                 required: true,
-                description: chalk.yellow('Group name:'),
-                message: 'Group name is required'
+                description: chalk.yellow('Menu group:'),
+                message: 'Menu group name is required'
             },
             name: {
                 required: true,
@@ -335,6 +335,8 @@ const createStyle = (opt, spinner) => {
 };
 const createStylePrompt = (opt) => {
 
+    log('');
+
     let params = {};
 
     _.keys(opt._events).forEach((key) => {
@@ -394,6 +396,7 @@ const createTemplate = (opt) => {
     log('');
 };
 const createTemplatePrompt = (opt) => {
+    log('');
 
     let params = {};
 
@@ -471,6 +474,7 @@ const createPage = (opt) => {
 
 };
 const createPagePrompt = (opt) => {
+    log('');
 
     let params = {};
 
