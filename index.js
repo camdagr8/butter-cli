@@ -197,7 +197,7 @@ const createMaterial = (type, opt) => {
     let name       = slugify(opt['name']).toLowerCase();
     let id         = (opt.hasOwnProperty('group')) ? slugify(opt.group).toLowerCase() : name;
     id             = (type === 'helper') ? 'helpers' : id;
-    let dna        = (opt.dna.length > 0) ? slugify(opt['dna']) : name;
+    let dna        = name;
     let mpath      = base + '/' + config.src + '/materials/' + id;
     let mfile      = mpath + '/' + name + '.html';
     let mat        = fs.readFileSync(__dirname + '/templates/material.html', 'utf-8');
@@ -208,9 +208,9 @@ const createMaterial = (type, opt) => {
     let view       = fs.readFileSync(__dirname + '/templates/view.html', 'utf-8');
     view           = view.replace(/\$\{id\}/gi, id);
     let spinner    = ora({
-        text:    'creating ' + type,
-        spinner: 'dots',
-        color:   'green'
+        text       : 'creating ' + type,
+        spinner    : 'dots',
+        color      : 'green'
     });
 
 
@@ -231,16 +231,20 @@ const createMaterial = (type, opt) => {
     fs.writeFileSync(vfile, view);
 
     // Create the style sheet
-    if (opt.style.length > 0) {
+    let style    = opt.style;
+    style        = (style.length > 0) ? style.toLowerCase() : 'n';
+    if (style !== 'n') {
         let sopt     = _.clone(opt);
-        sopt['name'] = opt.style;
-        createStyle(opt, spinner);
+        sopt['name'] = (opt.style.toLowerCase() === 'y') ? name : opt.style;
+        createStyle(sopt, spinner);
     } else {
         spinner.succeed('create complete!');
         log('');
     }
 };
 const createMaterialPrompt = (type, opt) => {
+    log('');
+    
     let params = {};
 
     _.keys(opt._events).forEach((key) => {
@@ -256,20 +260,16 @@ const createMaterialPrompt = (type, opt) => {
             group: {
                 required: true,
                 description: chalk.yellow('Group name:'),
-                message: 'Group is a required'
+                message: 'Group name is required'
             },
             name: {
                 required: true,
                 description: chalk.yellow('Material name:'),
                 message: 'Material name is required'
             },
-            dna: {
-                required: false,
-                description: chalk.yellow('DNA ID:')
-            },
             style: {
                 required: false,
-                description: chalk.yellow('Style sheet name:')
+                description: chalk.yellow('Style sheet (Y/N):')
             },
         }
     };
