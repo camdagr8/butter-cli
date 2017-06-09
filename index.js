@@ -228,7 +228,9 @@ const createMaterial = (type, opt) => {
 
     // Create the view file
     fs.ensureDirSync(vpath);
-    fs.writeFileSync(vfile, view);
+    if (!fs.existsSync(vfile)) {
+        fs.writeFileSync(vfile, view);
+    }
 
     // Create the style sheet
     let style    = opt.style;
