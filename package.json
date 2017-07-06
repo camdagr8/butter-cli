@@ -30,6 +30,7 @@
     "commander": "^2.9.0",
     "decompress": "^4.1.0",
     "fs-extra": "^2.1.2",
+    "gulp": "^3.9.1",
     "js-beautify": "^1.6.11",
     "ora": "^1.2.0",
     "prompt": "^1.0.0",

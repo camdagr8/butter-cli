@@ -28,9 +28,10 @@ const ora           = require('ora');
  * Constants
  * -----------------------------------------------------------------------------
  */
-const base            = path.resolve(process.cwd());
+const base          = path.resolve(process.cwd());
 const log           = console.log.bind(console);
 const types         = ['atom', 'helper', 'molecule', 'organism', 'style', 'template', 'page'];
+const gulpBin       = 'node_modules/gulp/bin/gulp.js';
 
 /**
  * -----------------------------------------------------------------------------
@@ -849,7 +850,7 @@ const install = {
     build: () => {
         install.spinner.text = 'building...';
 
-        let gulp = spawn('gulp');
+        let gulp = spawn(gulpBin);
         gulp.stdout.on('data', (data) => {
             let txt                 = data.toString();
             txt                     = txt.replace(/\r?\n|\r/g, '');
@@ -887,7 +888,7 @@ const launch = (opt) => {
 
     let env     = (opt.hasOwnProperty('port')) ? ['--dev', '--port', opt.port] : ['--dev'];
 
-    let gulp    = spawn('gulp', env);
+    let gulp    = spawn(gulpBin, env);
     let msg     = 'Running Butter: Press '+chalk.green('ctrl + c')+' to exit  ';
 
     gulp.stdout.on('data', function (data) {
@@ -924,7 +925,7 @@ const eject = (path) => {
 
     spinner.start();
 
-    let gulp = spawn('gulp');
+    let gulp = spawn(gulpBin);
     gulp.stdout.on('data', (data) => {
         let txt         = data.toString();
         txt             = txt.replace(/\r?\n|\r/g, '');
@@ -1074,7 +1075,7 @@ program.command('build')
 
     spinner.start();
 
-    let gulp    = spawn('gulp');
+    let gulp    = spawn(gulpBin);
     gulp.stdout.on('data', (data) => {
         let txt         = data.toString();
         txt             = txt.replace(/\r?\n|\r/g, '');
