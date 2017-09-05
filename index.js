@@ -30,7 +30,7 @@ const ora           = require('ora');
  */
 const base          = path.resolve(process.cwd());
 const log           = console.log.bind(console);
-const types         = ['atom', 'helper', 'molecule', 'organism', 'style', 'template', 'page'];
+const types         = ['atom', 'catalyst', 'helper', 'molecule', 'organism', 'style', 'template', 'page'];
 const gulpBin       = 'node_modules/gulp/bin/gulp.js';
 
 /**
@@ -248,16 +248,6 @@ const createMaterial = (type, opt) => {
 const createMaterialPrompt = (type, opt) => {
     log('');
 
-    let params = {};
-
-    _.keys(opt._events).forEach((key) => {
-        if (opt.hasOwnProperty(key)) {
-            params[key] = opt[key];
-        } else {
-            delete params[key];
-        }
-    });
-
     let schema = {
         properties: {
             group: {
@@ -277,13 +267,22 @@ const createMaterialPrompt = (type, opt) => {
         }
     };
 
-    prompt.message = '  > ';
-    prompt.delimiter = '';
-    prompt.override = params;
+    let params = {};
+    _.keys(schema.properties).forEach((key) => {
+        if (opt.hasOwnProperty(key)) {
+            params[key] = opt[key];
+        } else {
+            delete params[key];
+        }
+    });
+
+    prompt.message      = '  > ';
+    prompt.delimiter    = '';
+    prompt.override     = params;
     prompt.start();
     prompt.get(schema, (err, result) => {
         if (err) {
-            log(prefix, chalk.red('create error:'), err);
+            log(prefix, chalk.red('error:'), err);
             process.exit();
         } else {
             _.keys(result).forEach((key) => { params[key] = result[key]; });
@@ -340,16 +339,6 @@ const createStylePrompt = (opt) => {
 
     log('');
 
-    let params = {};
-
-    _.keys(opt._events).forEach((key) => {
-        if (opt.hasOwnProperty(key)) {
-            params[key] = opt[key];
-        } else {
-            delete params[key];
-        }
-    });
-
     let schema = {
         properties: {
             name: {
@@ -360,16 +349,26 @@ const createStylePrompt = (opt) => {
         }
     };
 
+    let params = {};
+    _.keys(schema.properties).forEach((key) => {
+        if (opt.hasOwnProperty(key)) {
+            params[key] = opt[key];
+        } else {
+            delete params[key];
+        }
+    });
+
     prompt.message   = '  > ';
     prompt.delimiter = '';
     prompt.override  = params;
     prompt.start();
     prompt.get(schema, (err, result) => {
         if (err) {
-            log(prefix, chalk.red('create style error:'), err);
+            log(prefix, chalk.red('error:'), err);
             process.exit();
         } else {
-            createStyle(result);
+            _.keys(result).forEach((key) => { params[key] = result[key]; });
+            createStyle(type, params);
         }
     });
 };
@@ -401,16 +400,6 @@ const createTemplate = (opt) => {
 const createTemplatePrompt = (opt) => {
     log('');
 
-    let params = {};
-
-    _.keys(opt._events).forEach((key) => {
-        if (opt.hasOwnProperty(key)) {
-            params[key] = opt[key];
-        } else {
-            delete params[key];
-        }
-    });
-
     let schema = {
         properties: {
             name: {
@@ -421,16 +410,26 @@ const createTemplatePrompt = (opt) => {
         }
     };
 
+    let params = {};
+    _.keys(schema.properties).forEach((key) => {
+        if (opt.hasOwnProperty(key)) {
+            params[key] = opt[key];
+        } else {
+            delete params[key];
+        }
+    });
+
     prompt.message   = '  > ';
     prompt.delimiter = '';
     prompt.override  = params;
     prompt.start();
     prompt.get(schema, (err, result) => {
         if (err) {
-            log(prefix, chalk.red('create template error:'), err);
+            log(prefix, chalk.red('error:'), err);
             process.exit();
         } else {
-            createTemplate(result);
+            _.keys(result).forEach((key) => { params[key] = result[key]; });
+            createTemplate(params);
         }
     });
 };
@@ -479,16 +478,6 @@ const createPage = (opt) => {
 const createPagePrompt = (opt) => {
     log('');
 
-    let params = {};
-
-    _.keys(opt._events).forEach((key) => {
-        if (opt.hasOwnProperty(key)) {
-            params[key] = opt[key];
-        } else {
-            delete params[key];
-        }
-    });
-
     let schema = {
         properties: {
             url: {
@@ -504,17 +493,26 @@ const createPagePrompt = (opt) => {
         }
     };
 
+    let params = {};
+    _.keys(schema.properties).forEach((key) => {
+        if (opt.hasOwnProperty(key)) {
+            params[key] = opt[key];
+        } else {
+            delete params[key];
+        }
+    });
+
     prompt.message   = '  > ';
     prompt.delimiter = '';
     prompt.override  = params;
     prompt.start();
     prompt.get(schema, (err, result) => {
         if (err) {
-            log(prefix, chalk.red('page error:'), err);
+            log(prefix, chalk.red('error:'), err);
             process.exit();
         } else {
-            _.keys(prompt.override).forEach((key) => { result[key] = prompt.override[key]; });
-            createPage(result);
+            _.keys(result).forEach((key) => { params[key] = result[key]; });
+            createPage(params);
         }
     });
 };
