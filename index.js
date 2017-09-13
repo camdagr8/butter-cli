@@ -172,7 +172,7 @@ const create = (type, opt) => {
     }
 
     type = String(type).toLowerCase();
-
+    
     switch (type) {
         case 'style':
             createStylePrompt(opt);
@@ -368,7 +368,7 @@ const createStylePrompt = (opt) => {
             process.exit();
         } else {
             _.keys(result).forEach((key) => { params[key] = result[key]; });
-            createStyle(type, params);
+            createStyle(params);
         }
     });
 };
