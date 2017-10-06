@@ -40,6 +40,15 @@ const gulpBin       = 'node_modules/gulp/bin/gulp.js';
  */
 program.version(pkg.version);
 
+String.prototype.toUpperCaseFirst = function () {
+    return this.replace(/\w\S*/g, function (txt) { return txt.charAt(0).toUpperCase() + txt.substr(1); });
+};
+
+String.prototype.camelCase = function () {
+    return this.replace(/(?:^\w|[A-Z]|\b\w)/g, function(letter, index) {
+        return index == 0 ? letter.toLowerCase() : letter.toUpperCase();
+    }).replace(/\s+/g, '');
+};
 
 /**
  * -----------------------------------------------------------------------------
@@ -201,9 +210,11 @@ const createMaterial = (type, opt) => {
     let dna        = name;
     let mpath      = base + '/' + config.src + '/materials/' + id;
     let mfile      = mpath + '/' + name + '.html';
-    let mat        = fs.readFileSync(__dirname + '/templates/material.html', 'utf-8');
+    let mtfile     = (type !== 'catalyst') ? 'material.html' : 'catalyst.html';
+    let mat        = fs.readFileSync(__dirname + '/templates/'+mtfile, 'utf-8');
     mat            = mat.replace(/\$\{type\}/gi, type);
     mat            = mat.replace(/\$\{dna\}/gi, dna);
+    mat            = mat.replace(/\$\{title\}/gi, name.toUpperCaseFirst());
     let vpath      = base + '/' + config.src + '/views/';
     let vfile      = vpath + id + '.html';
     let view       = fs.readFileSync(__dirname + '/templates/view.html', 'utf-8');
@@ -232,6 +243,21 @@ const createMaterial = (type, opt) => {
     if (!fs.existsSync(vfile)) {
         fs.writeFileSync(vfile, view);
     }
+
+    // Catalyst -> Create js file
+    if (type === 'catalyst') {
+        let jname    = name.camelCase().toUpperCaseFirst();
+        let jpath    = base + '/' + config.src + '/catalyst/components';
+        let jfile    = jpath + '/' + jname + '.js';
+        let jmat     = fs.readFileSync(__dirname + '/templates/catalyst.js', 'utf-8');
+        jmat         = jmat.replace(/\$\{name\}/gi, jname);
+
+        fs.ensureDirSync(jpath);
+        if (!fs.existsSync(jfile)) {
+            fs.writeFileSync(jfile, jmat);
+        }
+    }
+
 
     // Create the style sheet
     let style    = opt.style;
