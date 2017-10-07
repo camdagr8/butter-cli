@@ -10,12 +10,27 @@ const React = require('react');
 
 /**
  * -----------------------------------------------------------------------------
- * Some information about this component
+ * ${name}
  * -----------------------------------------------------------------------------
  */
-const ${name} = props => (
-<span></span>
-);
+class ${name} extends React.Component {
+    constructor(props) {
+        super(props);
+
+        // Initial state
+        this.state = {
+
+        }
+    }
+
+    render() {
+        return (<div></div>);
+    }
+}
+
+${name}.defaultProps = {
+
+};
 
 
 /**
